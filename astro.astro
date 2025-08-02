@@ -1,0 +1,523 @@
+/// ============================================================================
+/// ASTRO PHYSICS LIBRARY
+/// A comprehensive physics simulation library written in the Astro programming language
+/// ============================================================================
+
+import math
+
+/// FUNDAMENTAL CONSTANTS
+let PI = 3.141592653589793
+let E = 2.718281828459045
+let LIGHT_SPEED = 299792458.0        // m/s
+let PLANCK_CONSTANT = 6.62607015e-34 // J⋅s
+let BOLTZMANN_CONSTANT = 1.380649e-23 // J/K
+let GRAVITATIONAL_CONSTANT = 6.67430e-11 // m³/kg⋅s²
+let ELECTRON_CHARGE = 1.602176634e-19 // C
+let AVOGADRO_NUMBER = 6.02214076e23 // mol⁻¹
+let GAS_CONSTANT = 8.314462618 // J/(mol⋅K)
+
+/// VECTOR MATHEMATICS
+struct Vector2D {
+    x: f64,
+    y: f64
+}
+
+struct Vector3D {
+    x: f64,
+    y: f64,
+    z: f64
+}
+
+// Vector2D operations
+fun vector2d_add(a: Vector2D, b: Vector2D) -> Vector2D {
+    Vector2D { x: a.x + b.x, y: a.y + b.y }
+}
+
+fun vector2d_subtract(a: Vector2D, b: Vector2D) -> Vector2D {
+    Vector2D { x: a.x - b.x, y: a.y - b.y }
+}
+
+fun vector2d_multiply(v: Vector2D, scalar: f64) -> Vector2D {
+    Vector2D { x: v.x * scalar, y: v.y * scalar }
+}
+
+fun vector2d_magnitude(v: Vector2D) -> f64 {
+    math.sqrt(v.x² + v.y²)
+}
+
+fun vector2d_normalize(v: Vector2D) -> Vector2D {
+    let mag = vector2d_magnitude(v)
+    if mag == 0.0 {
+        Vector2D { x: 0.0, y: 0.0 }
+    } else {
+        Vector2D { x: v.x / mag, y: v.y / mag }
+    }
+}
+
+fun vector2d_dot(a: Vector2D, b: Vector2D) -> f64 {
+    a.x * b.x + a.y * b.y
+}
+
+// Vector3D operations
+fun vector3d_add(a: Vector3D, b: Vector3D) -> Vector3D {
+    Vector3D { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }
+}
+
+fun vector3d_subtract(a: Vector3D, b: Vector3D) -> Vector3D {
+    Vector3D { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }
+}
+
+fun vector3d_multiply(v: Vector3D, scalar: f64) -> Vector3D {
+    Vector3D { x: v.x * scalar, y: v.y * scalar, z: v.z * scalar }
+}
+
+fun vector3d_magnitude(v: Vector3D) -> f64 {
+    math.sqrt(v.x² + v.y² + v.z²)
+}
+
+fun vector3d_normalize(v: Vector3D) -> Vector3D {
+    let mag = vector3d_magnitude(v)
+    if mag == 0.0 {
+        Vector3D { x: 0.0, y: 0.0, z: 0.0 }
+    } else {
+        Vector3D { x: v.x / mag, y: v.y / mag, z: v.z / mag }
+    }
+}
+
+fun vector3d_dot(a: Vector3D, b: Vector3D) -> f64 {
+    a.x * b.x + a.y * b.y + a.z * b.z
+}
+
+fun vector3d_cross(a: Vector3D, b: Vector3D) -> Vector3D {
+    Vector3D {
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x
+    }
+}
+
+/// KINEMATICS - Motion and movement calculations
+struct Motion1D {
+    position: f64,
+    velocity: f64,
+    acceleration: f64,
+    time: f64
+}
+
+struct Motion2D {
+    position: Vector2D,
+    velocity: Vector2D,
+    acceleration: Vector2D,
+    time: f64
+}
+
+// Calculate position using kinematic equations
+fun kinematic_position(initial_pos: f64, initial_vel: f64, acceleration: f64, time: f64) -> f64 {
+    initial_pos + initial_vel * time + 0.5 * acceleration * time²
+}
+
+// Calculate velocity using kinematic equations
+fun kinematic_velocity(initial_vel: f64, acceleration: f64, time: f64) -> f64 {
+    initial_vel + acceleration * time
+}
+
+// Calculate final velocity using v² = u² + 2as
+fun kinematic_final_velocity(initial_vel: f64, acceleration: f64, displacement: f64) -> f64 {
+    math.sqrt(initial_vel² + 2.0 * acceleration * displacement)
+}
+
+// Projectile motion
+fun projectile_range(initial_velocity: f64, angle_rad: f64, gravity: f64) -> f64 {
+    (initial_velocity² * math.sin(2.0 * angle_rad)) / gravity
+}
+
+fun projectile_max_height(initial_velocity: f64, angle_rad: f64, gravity: f64) -> f64 {
+    let vy = initial_velocity * math.sin(angle_rad)
+    vy² / (2.0 * gravity)
+}
+
+fun projectile_time_of_flight(initial_velocity: f64, angle_rad: f64, gravity: f64) -> f64 {
+    (2.0 * initial_velocity * math.sin(angle_rad)) / gravity
+}
+
+/// DYNAMICS - Forces and Newton's laws
+struct Force {
+    magnitude: f64,
+    direction: Vector3D // Unit vector
+}
+
+// Newton's second law: F = ma
+fun force_from_mass_acceleration(mass: f64, acceleration: Vector3D) -> Vector3D {
+    vector3d_multiply(acceleration, mass)
+}
+
+// Weight force
+fun gravitational_force(mass: f64, gravity: f64) -> f64 {
+    mass * gravity
+}
+
+// Friction force
+fun friction_force(normal_force: f64, coefficient: f64) -> f64 {
+    coefficient * normal_force
+}
+
+// Spring force (Hooke's law)
+fun spring_force(spring_constant: f64, displacement: f64) -> f64 {
+    -spring_constant * displacement
+}
+
+// Centripetal force
+fun centripetal_force(mass: f64, velocity: f64, radius: f64) -> f64 {
+    mass * velocity² / radius
+}
+
+/// ENERGY AND WORK
+// Kinetic energy
+fun kinetic_energy(mass: f64, velocity: f64) -> f64 {
+    0.5 * mass * velocity²
+}
+
+// Potential energy (gravitational)
+fun gravitational_potential_energy(mass: f64, height: f64, gravity: f64) -> f64 {
+    mass * gravity * height
+}
+
+// Elastic potential energy
+fun elastic_potential_energy(spring_constant: f64, displacement: f64) -> f64 {
+    0.5 * spring_constant * displacement²
+}
+
+// Work done by force
+fun work_done(force: f64, displacement: f64, angle_rad: f64) -> f64 {
+    force * displacement * math.cos(angle_rad)
+}
+
+// Power
+fun power_from_work_time(work: f64, time: f64) -> f64 {
+    work / time
+}
+
+fun power_from_force_velocity(force: f64, velocity: f64) -> f64 {
+    force * velocity
+}
+
+/// MOMENTUM AND IMPULSE
+// Linear momentum
+fun linear_momentum(mass: f64, velocity: Vector3D) -> Vector3D {
+    vector3d_multiply(velocity, mass)
+}
+
+// Impulse
+fun impulse(force: Vector3D, time: f64) -> Vector3D {
+    vector3d_multiply(force, time)
+}
+
+// Conservation of momentum for collision
+struct CollisionResult {
+    velocity1_final: f64,
+    velocity2_final: f64
+}
+
+fun elastic_collision_1d(m1: f64, m2: f64, v1_initial: f64, v2_initial: f64) -> CollisionResult {
+    let v1_final = ((m1 - m2) * v1_initial + 2.0 * m2 * v2_initial) / (m1 + m2)
+    let v2_final = ((m2 - m1) * v2_initial + 2.0 * m1 * v1_initial) / (m1 + m2)
+    CollisionResult { velocity1_final: v1_final, velocity2_final: v2_final }
+}
+
+/// ROTATIONAL MECHANICS
+// Moment of inertia for common shapes
+fun moment_of_inertia_rod(mass: f64, length: f64) -> f64 {
+    mass * length² / 12.0
+}
+
+fun moment_of_inertia_disk(mass: f64, radius: f64) -> f64 {
+    0.5 * mass * radius²
+}
+
+fun moment_of_inertia_sphere(mass: f64, radius: f64) -> f64 {
+    0.4 * mass * radius²
+}
+
+// Angular kinematics
+fun angular_velocity(angle_change: f64, time: f64) -> f64 {
+    angle_change / time
+}
+
+fun angular_acceleration(angular_velocity_change: f64, time: f64) -> f64 {
+    angular_velocity_change / time
+}
+
+// Rotational kinetic energy
+fun rotational_kinetic_energy(moment_of_inertia: f64, angular_velocity: f64) -> f64 {
+    0.5 * moment_of_inertia * angular_velocity²
+}
+
+// Torque
+fun torque(force: f64, radius: f64, angle_rad: f64) -> f64 {
+    force * radius * math.sin(angle_rad)
+}
+
+/// WAVES AND OSCILLATIONS
+// Simple harmonic motion
+fun shm_position(amplitude: f64, angular_frequency: f64, time: f64, phase: f64) -> f64 {
+    amplitude * math.cos(angular_frequency * time + phase)
+}
+
+fun shm_velocity(amplitude: f64, angular_frequency: f64, time: f64, phase: f64) -> f64 {
+    -amplitude * angular_frequency * math.sin(angular_frequency * time + phase)
+}
+
+fun shm_acceleration(amplitude: f64, angular_frequency: f64, time: f64, phase: f64) -> f64 {
+    -amplitude * angular_frequency² * math.cos(angular_frequency * time + phase)
+}
+
+// Wave properties
+fun wave_frequency(period: f64) -> f64 {
+    1.0 / period
+}
+
+fun wave_speed(frequency: f64, wavelength: f64) -> f64 {
+    frequency * wavelength
+}
+
+fun wave_period(frequency: f64) -> f64 {
+    1.0 / frequency
+}
+
+// Wave equation
+fun wave_amplitude(A: f64, k: f64, x: f64, omega: f64, t: f64, phi: f64) -> f64 {
+    A * math.sin(k * x - omega * t + phi)
+}
+
+/// THERMODYNAMICS
+// Ideal gas law: PV = nRT
+fun ideal_gas_pressure(n: f64, R: f64, T: f64, V: f64) -> f64 {
+    (n * R * T) / V
+}
+
+fun ideal_gas_volume(n: f64, R: f64, T: f64, P: f64) -> f64 {
+    (n * R * T) / P
+}
+
+fun ideal_gas_temperature(P: f64, V: f64, n: f64, R: f64) -> f64 {
+    (P * V) / (n * R)
+}
+
+// Thermal energy and heat capacity
+fun thermal_energy_change(mass: f64, specific_heat: f64, temp_change: f64) -> f64 {
+    mass * specific_heat * temp_change
+}
+
+// Efficiency of heat engine
+fun carnot_efficiency(hot_temp: f64, cold_temp: f64) -> f64 {
+    1.0 - (cold_temp / hot_temp)
+}
+
+/// ELECTROMAGNETISM
+// Coulomb's law
+fun coulomb_force(q1: f64, q2: f64, distance: f64) -> f64 {
+    let k = 8.9875517923e9 // Coulomb's constant
+    k * math.abs(q1 * q2) / distance²
+}
+
+// Electric field
+fun electric_field(charge: f64, distance: f64) -> f64 {
+    let k = 8.9875517923e9
+    k * math.abs(charge) / distance²
+}
+
+// Electric potential
+fun electric_potential(charge: f64, distance: f64) -> f64 {
+    let k = 8.9875517923e9
+    k * charge / distance
+}
+
+// Ohm's law
+fun ohms_law_voltage(current: f64, resistance: f64) -> f64 {
+    current * resistance
+}
+
+fun ohms_law_current(voltage: f64, resistance: f64) -> f64 {
+    voltage / resistance
+}
+
+fun ohms_law_resistance(voltage: f64, current: f64) -> f64 {
+    voltage / current
+}
+
+// Power in electrical circuits
+fun electrical_power(voltage: f64, current: f64) -> f64 {
+    voltage * current
+}
+
+// Magnetic force on moving charge
+fun magnetic_force(charge: f64, velocity: f64, magnetic_field: f64, angle_rad: f64) -> f64 {
+    charge * velocity * magnetic_field * math.sin(angle_rad)
+}
+
+/// QUANTUM MECHANICS BASICS
+// De Broglie wavelength
+fun de_broglie_wavelength(momentum: f64) -> f64 {
+    PLANCK_CONSTANT / momentum
+}
+
+// Photon energy
+fun photon_energy(frequency: f64) -> f64 {
+    PLANCK_CONSTANT * frequency
+}
+
+// Compton scattering
+fun compton_wavelength_shift(scattering_angle: f64) -> f64 {
+    let electron_compton_wavelength = 2.42631023867e-12 // meters
+    electron_compton_wavelength * (1.0 - math.cos(scattering_angle))
+}
+
+/// RELATIVITY
+// Time dilation
+fun time_dilation(proper_time: f64, velocity: f64) -> f64 {
+    let gamma = 1.0 / math.sqrt(1.0 - (velocity² / LIGHT_SPEED²))
+    proper_time * gamma
+}
+
+// Length contraction
+fun length_contraction(proper_length: f64, velocity: f64) -> f64 {
+    let gamma = 1.0 / math.sqrt(1.0 - (velocity² / LIGHT_SPEED²))
+    proper_length / gamma
+}
+
+// Relativistic momentum
+fun relativistic_momentum(mass: f64, velocity: f64) -> f64 {
+    let gamma = 1.0 / math.sqrt(1.0 - (velocity² / LIGHT_SPEED²))
+    gamma * mass * velocity
+}
+
+// Mass-energy equivalence
+fun mass_energy_equivalence(mass: f64) -> f64 {
+    mass * LIGHT_SPEED²
+}
+
+/// PARTICLE PHYSICS SIMULATION
+struct Particle {
+    mass: f64,
+    charge: f64,
+    position: Vector3D,
+    velocity: Vector3D,
+    acceleration: Vector3D
+}
+
+fun create_particle(mass: f64, charge: f64, pos: Vector3D, vel: Vector3D) -> Particle {
+    Particle {
+        mass: mass,
+        charge: charge,
+        position: pos,
+        velocity: vel,
+        acceleration: Vector3D { x: 0.0, y: 0.0, z: 0.0 }
+    }
+}
+
+fun update_particle_physics(particle: Particle, force: Vector3D, dt: f64) -> Particle {
+    // F = ma, so a = F/m
+    let new_acceleration = vector3d_multiply(force, 1.0 / particle.mass)
+    
+    // Update velocity: v = v₀ + at
+    let new_velocity = vector3d_add(particle.velocity, vector3d_multiply(new_acceleration, dt))
+    
+    // Update position: x = x₀ + vt + ½at²
+    let velocity_term = vector3d_multiply(particle.velocity, dt)
+    let acceleration_term = vector3d_multiply(new_acceleration, 0.5 * dt²)
+    let new_position = vector3d_add(particle.position, vector3d_add(velocity_term, acceleration_term))
+    
+    Particle {
+        mass: particle.mass,
+        charge: particle.charge,
+        position: new_position,
+        velocity: new_velocity,
+        acceleration: new_acceleration
+    }
+}
+
+/// UTILITY FUNCTIONS
+// Convert degrees to radians
+fun degrees_to_radians(degrees: f64) -> f64 {
+    degrees * PI / 180.0
+}
+
+// Convert radians to degrees
+fun radians_to_degrees(radians: f64) -> f64 {
+    radians * 180.0 / PI
+}
+
+// Linear interpolation
+fun lerp(a: f64, b: f64, t: f64) -> f64 {
+    a + t * (b - a)
+}
+
+// Physics simulation time step integration
+fun integrate_verlet(position: f64, velocity: f64, acceleration: f64, dt: f64) -> (f64, f64) {
+    let new_position = position + velocity * dt + 0.5 * acceleration * dt²
+    let new_velocity = velocity + acceleration * dt
+    (new_position, new_velocity)
+}
+
+/// EXAMPLE USAGE AND DEMO FUNCTIONS
+fun physics_demo() {
+    print("=== ASTRO PHYSICS LIBRARY DEMO ===")
+    
+    // Projectile motion example
+    let initial_velocity = 50.0 // m/s
+    let launch_angle = degrees_to_radians(45.0)
+    let gravity = 9.81 // m/s²
+    
+    let range = projectile_range(initial_velocity, launch_angle, gravity)
+    let max_height = projectile_max_height(initial_velocity, launch_angle, gravity)
+    let flight_time = projectile_time_of_flight(initial_velocity, launch_angle, gravity)
+    
+    print("Projectile Motion (45° angle, 50 m/s initial velocity):")
+    print("Range: ${range} meters")
+    print("Max Height: ${max_height} meters")
+    print("Flight Time: ${flight_time} seconds")
+    print()
+    
+    // Energy conservation example
+    let mass = 10.0 // kg
+    let height = 100.0 // meters
+    let pe = gravitational_potential_energy(mass, height, gravity)
+    let velocity_at_bottom = math.sqrt(2.0 * gravity * height)
+    let ke = kinetic_energy(mass, velocity_at_bottom)
+    
+    print("Energy Conservation (10 kg object falling 100m):")
+    print("Initial PE: ${pe} J")
+    print("Final KE: ${ke} J")
+    print("Velocity at bottom: ${velocity_at_bottom} m/s")
+    print()
+    
+    // Wave motion example
+    let frequency = 440.0 // Hz (A note)
+    let wavelength = 0.773 // meters in air
+    let wave_speed_calc = wave_speed(frequency, wavelength)
+    
+    print("Wave Motion (A note at 440 Hz):")
+    print("Wave speed: ${wave_speed_calc} m/s")
+    print("Period: ${wave_period(frequency)} seconds")
+    print()
+    
+    // Simple particle simulation
+    let particle_pos = Vector3D { x: 0.0, y: 0.0, z: 0.0 }
+    let particle_vel = Vector3D { x: 10.0, y: 0.0, z: 0.0 }
+    let particle = create_particle(1.0, 0.0, particle_pos, particle_vel)
+    
+    print("Particle Simulation:")
+    print("Initial position: (${particle.position.x}, ${particle.position.y}, ${particle.position.z})")
+    
+    // Apply constant force and update
+    let force = Vector3D { x: 0.0, y: -9.81, z: 0.0 } // gravity
+    let dt = 0.1 // 0.1 second time step
+    
+    let updated_particle = update_particle_physics(particle, force, dt)
+    print("After 0.1s with gravity:")
+    print("Position: (${updated_particle.position.x}, ${updated_particle.position.y}, ${updated_particle.position.z})")
+    print("Velocity: (${updated_particle.velocity.x}, ${updated_particle.velocity.y}, ${updated_particle.velocity.z})")
+}
+
+// Run the demo
+physics_demo()
