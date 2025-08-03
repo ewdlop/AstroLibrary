@@ -635,7 +635,9 @@ fun gravitational_time_dilation_factor(mass: f64, radius: f64) -> f64 {
 // Mercury perihelion precession (general relativity correction)
 fun mercury_perihelion_precession_rate(semi_major_axis: f64, eccentricity: f64, central_mass: f64) -> f64 {
     let rs = schwarzschild_radius(central_mass)
-    6.0 * PI * rs / (semi_major_axis * (1.0 - eccentricity²))
+    // Formula gives advance per orbit in radians
+    // This is the correct Einstein formula: 6πGM/(c²a(1-e²))
+    6.0 * PI * GRAVITATIONAL_CONSTANT * central_mass / (LIGHT_SPEED² * semi_major_axis * (1.0 - eccentricity²))
 }
 
 // Post-Newtonian orbital frequency correction
@@ -886,12 +888,13 @@ fun celestial_mechanics_demo() {
     print("Sun's Schwarzschild radius: ${sun_schwarzschild / 1000.0} km")
     
     // Mercury perihelion precession
-    let mercury_precession = mercury_perihelion_precession_rate(mercury_semi_major, mercury_eccentricity, SOLAR_MASS)
+    let mercury_precession_per_orbit = mercury_perihelion_precession_rate(mercury_semi_major, mercury_eccentricity, SOLAR_MASS)
     let mercury_period = orbital_period(mercury_semi_major, SOLAR_MASS)
-    let precession_per_orbit = mercury_precession * mercury_period
-    let precession_per_century = precession_per_orbit * (100.0 * 365.25 * 24.0 * 3600.0) / mercury_period
+    let orbits_per_century = (100.0 * 365.25 * 24.0 * 3600.0) / mercury_period
+    let precession_per_century_rad = mercury_precession_per_orbit * orbits_per_century
+    let precession_per_century_arcsec = radians_to_degrees(precession_per_century_rad) * 3600.0
     
-    print("Mercury perihelion precession: ${radians_to_degrees(precession_per_century)} arcsec/century")
+    print("Mercury perihelion precession: ${precession_per_century_arcsec} arcsec/century")
     print("Observed: ~43 arcsec/century")
     
     // Time dilation on Earth's surface
