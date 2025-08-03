@@ -16,6 +16,20 @@ let ELECTRON_CHARGE = 1.602176634e-19 // C
 let AVOGADRO_NUMBER = 6.02214076e23 // mol⁻¹
 let GAS_CONSTANT = 8.314462618 // J/(mol⋅K)
 
+/// ASTRONOMICAL CONSTANTS
+let ASTRONOMICAL_UNIT = 1.495978707e11  // meters
+let SOLAR_MASS = 1.98847e30             // kg
+let EARTH_MASS = 5.9722e24              // kg
+let MOON_MASS = 7.342e22                // kg
+let EARTH_RADIUS = 6.371e6              // meters
+let SOLAR_RADIUS = 6.96e8               // meters
+let EARTH_ORBITAL_VELOCITY = 29780.0    // m/s
+let ESCAPE_VELOCITY_EARTH = 11180.0     // m/s
+let SIDEREAL_YEAR = 31558149.504        // seconds
+let SIDEREAL_DAY = 86164.0905           // seconds
+let LUNAR_DISTANCE = 3.844e8            // meters (Earth-Moon distance)
+let SCHWARZSCHILD_RADIUS_SUN = 2953.0   // meters
+
 /// VECTOR MATHEMATICS
 struct Vector2D {
     x: f64,
@@ -436,6 +450,318 @@ fun update_particle_physics(particle: Particle, force: Vector3D, dt: f64) -> Par
     }
 }
 
+/// CELESTIAL MECHANICS
+/// Orbital Elements Structure - describes an orbit completely
+struct OrbitalElements {
+    semi_major_axis: f64,      // a - size of orbit
+    eccentricity: f64,         // e - shape of orbit (0 = circle, <1 = ellipse, >=1 = hyperbola)
+    inclination: f64,          // i - tilt of orbital plane (radians)
+    longitude_ascending: f64,  // Ω - orientation of orbital plane (radians)
+    argument_periapsis: f64,   // ω - orientation of orbit in plane (radians)
+    mean_anomaly: f64          // M - position of object in orbit at epoch (radians)
+}
+
+struct CelestialBody {
+    mass: f64,
+    radius: f64,
+    position: Vector3D,
+    velocity: Vector3D,
+    name: string
+}
+
+/// KEPLER'S LAWS AND ORBITAL MECHANICS
+// Kepler's Third Law: T² = (4π²/GM) * a³
+fun orbital_period(semi_major_axis: f64, central_mass: f64) -> f64 {
+    let coefficient = 4.0 * PI² / (GRAVITATIONAL_CONSTANT * central_mass)
+    math.sqrt(coefficient * semi_major_axis³)
+}
+
+// Kepler's Second Law: Calculate orbital velocity at any distance
+fun orbital_velocity_at_distance(central_mass: f64, distance: f64, semi_major_axis: f64) -> f64 {
+    math.sqrt(GRAVITATIONAL_CONSTANT * central_mass * (2.0 / distance - 1.0 / semi_major_axis))
+}
+
+// Circular orbital velocity
+fun circular_orbital_velocity(central_mass: f64, orbital_radius: f64) -> f64 {
+    math.sqrt(GRAVITATIONAL_CONSTANT * central_mass / orbital_radius)
+}
+
+// Escape velocity from celestial body
+fun escape_velocity(mass: f64, radius: f64) -> f64 {
+    math.sqrt(2.0 * GRAVITATIONAL_CONSTANT * mass / radius)
+}
+
+// Gravitational sphere of influence
+fun sphere_of_influence(primary_mass: f64, secondary_mass: f64, separation: f64) -> f64 {
+    separation * math.pow(secondary_mass / primary_mass, 2.0 / 5.0)
+}
+
+/// TWO-BODY PROBLEM SOLUTIONS
+// Solve Kepler's equation: M = E - e*sin(E)
+// Uses Newton-Raphson iteration
+fun solve_kepler_equation(mean_anomaly: f64, eccentricity: f64, tolerance: f64) -> f64 {
+    let mut eccentric_anomaly = mean_anomaly
+    let mut iteration = 0
+    let max_iterations = 100
+    
+    while iteration < max_iterations {
+        let f = eccentric_anomaly - eccentricity * math.sin(eccentric_anomaly) - mean_anomaly
+        let df = 1.0 - eccentricity * math.cos(eccentric_anomaly)
+        let delta = f / df
+        
+        eccentric_anomaly = eccentric_anomaly - delta
+        
+        if math.abs(delta) < tolerance {
+            break
+        }
+        iteration = iteration + 1
+    }
+    
+    eccentric_anomaly
+}
+
+// Calculate true anomaly from eccentric anomaly
+fun true_anomaly_from_eccentric(eccentric_anomaly: f64, eccentricity: f64) -> f64 {
+    2.0 * math.atan2(
+        math.sqrt(1.0 + eccentricity) * math.sin(eccentric_anomaly / 2.0),
+        math.sqrt(1.0 - eccentricity) * math.cos(eccentric_anomaly / 2.0)
+    )
+}
+
+// Calculate distance from focus at true anomaly
+fun orbital_radius_at_true_anomaly(semi_major_axis: f64, eccentricity: f64, true_anomaly: f64) -> f64 {
+    semi_major_axis * (1.0 - eccentricity²) / (1.0 + eccentricity * math.cos(true_anomaly))
+}
+
+/// GRAVITATIONAL FIELD CALCULATIONS
+// Gravitational acceleration at distance from point mass
+fun gravitational_acceleration(mass: f64, distance: f64) -> f64 {
+    GRAVITATIONAL_CONSTANT * mass / distance²
+}
+
+// Gravitational potential energy in orbit
+fun orbital_potential_energy(mass1: f64, mass2: f64, separation: f64) -> f64 {
+    -GRAVITATIONAL_CONSTANT * mass1 * mass2 / separation
+}
+
+// Total orbital energy
+fun orbital_total_energy(mass1: f64, mass2: f64, semi_major_axis: f64) -> f64 {
+    let reduced_mass = (mass1 * mass2) / (mass1 + mass2)
+    -GRAVITATIONAL_CONSTANT * mass1 * mass2 * reduced_mass / (2.0 * semi_major_axis)
+}
+
+/// LAGRANGE POINTS
+// L1 Lagrange point distance from smaller body
+fun lagrange_l1_distance(primary_mass: f64, secondary_mass: f64, separation: f64) -> f64 {
+    let mass_ratio = secondary_mass / primary_mass
+    let mut r = separation * math.pow(mass_ratio / 3.0, 1.0 / 3.0)
+    
+    // Iterative refinement
+    for i in 0..10 {
+        let f = r³ - r² * separation + mass_ratio * separation³ / 3.0
+        let df = 3.0 * r² - 2.0 * r * separation
+        r = r - f / df
+    }
+    
+    separation - r
+}
+
+// Effective potential at Lagrange points
+fun lagrange_effective_potential(primary_mass: f64, secondary_mass: f64, separation: f64, x: f64, y: f64) -> f64 {
+    let r1 = math.sqrt((x + secondary_mass * separation / (primary_mass + secondary_mass))² + y²)
+    let r2 = math.sqrt((x - primary_mass * separation / (primary_mass + secondary_mass))² + y²)
+    let omega = math.sqrt(GRAVITATIONAL_CONSTANT * (primary_mass + secondary_mass) / separation³)
+    
+    -GRAVITATIONAL_CONSTANT * primary_mass / r1 - GRAVITATIONAL_CONSTANT * secondary_mass / r2 - 0.5 * omega² * (x² + y²)
+}
+
+/// TIDAL FORCES
+// Tidal acceleration on test mass
+fun tidal_acceleration(primary_mass: f64, primary_distance: f64, test_distance_from_primary: f64) -> f64 {
+    let gm = GRAVITATIONAL_CONSTANT * primary_mass
+    gm / test_distance_from_primary² - gm / primary_distance²
+}
+
+// Roche limit for fluid body
+fun roche_limit_fluid(primary_mass: f64, primary_radius: f64, secondary_density: f64, primary_density: f64) -> f64 {
+    2.44 * primary_radius * math.pow(primary_density / secondary_density, 1.0 / 3.0)
+}
+
+// Roche limit for rigid body
+fun roche_limit_rigid(primary_mass: f64, primary_radius: f64, secondary_mass: f64) -> f64 {
+    2.44 * primary_radius * math.pow(primary_mass / secondary_mass, 1.0 / 3.0)
+}
+
+/// ORBITAL TRANSFERS
+// Hohmann transfer orbit calculations
+struct HohmannTransfer {
+    transfer_velocity_1: f64,  // ΔV at departure
+    transfer_velocity_2: f64,  // ΔV at arrival
+    transfer_time: f64,        // Time of flight
+    total_delta_v: f64         // Total ΔV required
+}
+
+fun hohmann_transfer(central_mass: f64, r1: f64, r2: f64) -> HohmannTransfer {
+    let v1_circular = circular_orbital_velocity(central_mass, r1)
+    let v2_circular = circular_orbital_velocity(central_mass, r2)
+    
+    let transfer_semi_major = (r1 + r2) / 2.0
+    let v1_transfer = orbital_velocity_at_distance(central_mass, r1, transfer_semi_major)
+    let v2_transfer = orbital_velocity_at_distance(central_mass, r2, transfer_semi_major)
+    
+    let delta_v1 = math.abs(v1_transfer - v1_circular)
+    let delta_v2 = math.abs(v2_circular - v2_transfer)
+    let transfer_period = orbital_period(transfer_semi_major, central_mass)
+    
+    HohmannTransfer {
+        transfer_velocity_1: delta_v1,
+        transfer_velocity_2: delta_v2,
+        transfer_time: transfer_period / 2.0,
+        total_delta_v: delta_v1 + delta_v2
+    }
+}
+
+/// RELATIVISTIC CELESTIAL MECHANICS
+// Schwarzschild radius
+fun schwarzschild_radius(mass: f64) -> f64 {
+    2.0 * GRAVITATIONAL_CONSTANT * mass / LIGHT_SPEED²
+}
+
+// Gravitational time dilation factor
+fun gravitational_time_dilation_factor(mass: f64, radius: f64) -> f64 {
+    math.sqrt(1.0 - schwarzschild_radius(mass) / radius)
+}
+
+// Mercury perihelion precession (general relativity correction)
+fun mercury_perihelion_precession_rate(semi_major_axis: f64, eccentricity: f64, central_mass: f64) -> f64 {
+    let rs = schwarzschild_radius(central_mass)
+    // Formula gives advance per orbit in radians
+    // This is the correct Einstein formula: 6πGM/(c²a(1-e²))
+    6.0 * PI * GRAVITATIONAL_CONSTANT * central_mass / (LIGHT_SPEED² * semi_major_axis * (1.0 - eccentricity²))
+}
+
+// Post-Newtonian orbital frequency correction
+fun post_newtonian_frequency_correction(mass1: f64, mass2: f64, separation: f64) -> f64 {
+    let total_mass = mass1 + mass2
+    let reduced_mass = (mass1 * mass2) / total_mass
+    let rs_total = schwarzschild_radius(total_mass)
+    
+    1.0 + (3.0 / 2.0) * rs_total / separation
+}
+
+// Gravitational redshift
+fun gravitational_redshift(mass: f64, radius: f64) -> f64 {
+    schwarzschild_radius(mass) / (2.0 * radius)
+}
+
+// Light bending angle (deflection by massive object)
+fun light_deflection_angle(mass: f64, impact_parameter: f64) -> f64 {
+    4.0 * GRAVITATIONAL_CONSTANT * mass / (LIGHT_SPEED² * impact_parameter)
+}
+
+/// N-BODY GRAVITATIONAL SIMULATION
+fun n_body_gravitational_force(bodies: [CelestialBody], body_index: i32) -> Vector3D {
+    let mut total_force = Vector3D { x: 0.0, y: 0.0, z: 0.0 }
+    let current_body = bodies[body_index]
+    
+    for i in 0..bodies.length {
+        if i != body_index {
+            let other_body = bodies[i]
+            let displacement = vector3d_subtract(other_body.position, current_body.position)
+            let distance = vector3d_magnitude(displacement)
+            
+            if distance > 0.0 {
+                let force_magnitude = GRAVITATIONAL_CONSTANT * current_body.mass * other_body.mass / distance²
+                let force_direction = vector3d_normalize(displacement)
+                let force = vector3d_multiply(force_direction, force_magnitude)
+                total_force = vector3d_add(total_force, force)
+            }
+        }
+    }
+    
+    total_force
+}
+
+/// ADDITIONAL ORBITAL MECHANICS UTILITIES
+// Convert mean motion to semi-major axis
+fun mean_motion_to_semi_major_axis(mean_motion: f64, central_mass: f64) -> f64 {
+    let gm = GRAVITATIONAL_CONSTANT * central_mass
+    math.pow(gm / mean_motion², 1.0 / 3.0)
+}
+
+// Calculate mean motion from semi-major axis
+fun semi_major_axis_to_mean_motion(semi_major_axis: f64, central_mass: f64) -> f64 {
+    let gm = GRAVITATIONAL_CONSTANT * central_mass
+    math.sqrt(gm / semi_major_axis³)
+}
+
+// Orbital energy per unit mass
+fun specific_orbital_energy(semi_major_axis: f64, central_mass: f64) -> f64 {
+    -GRAVITATIONAL_CONSTANT * central_mass / (2.0 * semi_major_axis)
+}
+
+// Convert orbital elements to Cartesian coordinates
+struct CartesianState {
+    position: Vector3D,
+    velocity: Vector3D
+}
+
+fun orbital_elements_to_cartesian(elements: OrbitalElements, central_mass: f64, time: f64) -> CartesianState {
+    // Calculate mean anomaly at time t
+    let mean_motion = semi_major_axis_to_mean_motion(elements.semi_major_axis, central_mass)
+    let mean_anomaly_t = elements.mean_anomaly + mean_motion * time
+    
+    // Solve Kepler's equation
+    let eccentric_anomaly = solve_kepler_equation(mean_anomaly_t, elements.eccentricity, 1e-10)
+    let true_anomaly = true_anomaly_from_eccentric(eccentric_anomaly, elements.eccentricity)
+    
+    // Calculate distance
+    let radius = orbital_radius_at_true_anomaly(elements.semi_major_axis, elements.eccentricity, true_anomaly)
+    
+    // Position in orbital plane
+    let cos_ta = math.cos(true_anomaly)
+    let sin_ta = math.sin(true_anomaly)
+    let x_orb = radius * cos_ta
+    let y_orb = radius * sin_ta
+    
+    // Velocity in orbital plane
+    let h = math.sqrt(GRAVITATIONAL_CONSTANT * central_mass * elements.semi_major_axis * (1.0 - elements.eccentricity²))
+    let vx_orb = -h * sin_ta / radius
+    let vy_orb = h * (elements.eccentricity + cos_ta) / radius
+    
+    // Rotation matrices for orbital orientation
+    let cos_omega = math.cos(elements.argument_periapsis)
+    let sin_omega = math.sin(elements.argument_periapsis)
+    let cos_Omega = math.cos(elements.longitude_ascending)
+    let sin_Omega = math.sin(elements.longitude_ascending)
+    let cos_i = math.cos(elements.inclination)
+    let sin_i = math.sin(elements.inclination)
+    
+    // Transform to inertial coordinates
+    let x = x_orb * (cos_omega * cos_Omega - sin_omega * sin_Omega * cos_i) - y_orb * (sin_omega * cos_Omega + cos_omega * sin_Omega * cos_i)
+    let y = x_orb * (cos_omega * sin_Omega + sin_omega * cos_Omega * cos_i) - y_orb * (sin_omega * sin_Omega - cos_omega * cos_Omega * cos_i)
+    let z = x_orb * sin_omega * sin_i + y_orb * cos_omega * sin_i
+    
+    let vx = vx_orb * (cos_omega * cos_Omega - sin_omega * sin_Omega * cos_i) - vy_orb * (sin_omega * cos_Omega + cos_omega * sin_Omega * cos_i)
+    let vy = vx_orb * (cos_omega * sin_Omega + sin_omega * cos_Omega * cos_i) - vy_orb * (sin_omega * sin_Omega - cos_omega * cos_Omega * cos_i)
+    let vz = vx_orb * sin_omega * sin_i + vy_orb * cos_omega * sin_i
+    
+    CartesianState {
+        position: Vector3D { x: x, y: y, z: z },
+        velocity: Vector3D { x: vx, y: vy, z: vz }
+    }
+}
+
+// Hill sphere radius (approximate sphere of gravitational influence)
+fun hill_sphere_radius(primary_mass: f64, secondary_mass: f64, orbital_distance: f64) -> f64 {
+    orbital_distance * math.pow(secondary_mass / (3.0 * primary_mass), 1.0 / 3.0)
+}
+
+// Synodic period (time between oppositions/conjunctions)
+fun synodic_period(period1: f64, period2: f64) -> f64 {
+    math.abs(1.0 / (1.0 / period1 - 1.0 / period2))
+}
+
 /// UTILITY FUNCTIONS
 // Convert degrees to radians
 fun degrees_to_radians(degrees: f64) -> f64 {
@@ -460,64 +786,176 @@ fun integrate_verlet(position: f64, velocity: f64, acceleration: f64, dt: f64) -
 }
 
 /// EXAMPLE USAGE AND DEMO FUNCTIONS
-fun physics_demo() {
-    print("=== ASTRO PHYSICS LIBRARY DEMO ===")
-    
-    // Projectile motion example
-    let initial_velocity = 50.0 // m/s
-    let launch_angle = degrees_to_radians(45.0)
-    let gravity = 9.81 // m/s²
-    
-    let range = projectile_range(initial_velocity, launch_angle, gravity)
-    let max_height = projectile_max_height(initial_velocity, launch_angle, gravity)
-    let flight_time = projectile_time_of_flight(initial_velocity, launch_angle, gravity)
-    
-    print("Projectile Motion (45° angle, 50 m/s initial velocity):")
-    print("Range: ${range} meters")
-    print("Max Height: ${max_height} meters")
-    print("Flight Time: ${flight_time} seconds")
+fun celestial_mechanics_demo() {
+    print("=== ASTRO PHYSICS LIBRARY - CELESTIAL MECHANICS DEMO ===")
     print()
     
-    // Energy conservation example
-    let mass = 10.0 // kg
-    let height = 100.0 // meters
-    let pe = gravitational_potential_energy(mass, height, gravity)
-    let velocity_at_bottom = math.sqrt(2.0 * gravity * height)
-    let ke = kinetic_energy(mass, velocity_at_bottom)
+    /// CLASSICAL ORBITAL MECHANICS
+    print("=== CLASSICAL ORBITAL MECHANICS ===")
     
-    print("Energy Conservation (10 kg object falling 100m):")
-    print("Initial PE: ${pe} J")
-    print("Final KE: ${ke} J")
-    print("Velocity at bottom: ${velocity_at_bottom} m/s")
+    // Earth's orbit around the Sun
+    let earth_orbit_radius = ASTRONOMICAL_UNIT
+    let earth_orbital_period = orbital_period(earth_orbit_radius, SOLAR_MASS)
+    let earth_orbital_vel = circular_orbital_velocity(SOLAR_MASS, earth_orbit_radius)
+    
+    print("Earth's Orbital Mechanics:")
+    print("Orbital radius: ${earth_orbit_radius / ASTRONOMICAL_UNIT} AU")
+    print("Orbital period: ${earth_orbital_period / (24.0 * 3600.0)} days")
+    print("Orbital velocity: ${earth_orbital_vel / 1000.0} km/s")
+    print("Theoretical: 365.25 days, 29.78 km/s")
     print()
     
-    // Wave motion example
-    let frequency = 440.0 // Hz (A note)
-    let wavelength = 0.773 // meters in air
-    let wave_speed_calc = wave_speed(frequency, wavelength)
+    // Moon's orbit around Earth
+    let moon_orbital_period = orbital_period(LUNAR_DISTANCE, EARTH_MASS)
+    let moon_orbital_vel = circular_orbital_velocity(EARTH_MASS, LUNAR_DISTANCE)
     
-    print("Wave Motion (A note at 440 Hz):")
-    print("Wave speed: ${wave_speed_calc} m/s")
-    print("Period: ${wave_period(frequency)} seconds")
+    print("Moon's Orbital Mechanics:")
+    print("Orbital period: ${moon_orbital_period / (24.0 * 3600.0)} days")
+    print("Orbital velocity: ${moon_orbital_vel / 1000.0} km/s")
     print()
     
-    // Simple particle simulation
-    let particle_pos = Vector3D { x: 0.0, y: 0.0, z: 0.0 }
-    let particle_vel = Vector3D { x: 10.0, y: 0.0, z: 0.0 }
-    let particle = create_particle(1.0, 0.0, particle_pos, particle_vel)
+    /// KEPLER'S LAWS DEMONSTRATION
+    print("=== KEPLER'S LAWS DEMONSTRATION ===")
     
-    print("Particle Simulation:")
-    print("Initial position: (${particle.position.x}, ${particle.position.y}, ${particle.position.z})")
+    // Elliptical orbit example (Mars-like)
+    let mars_semi_major = 1.524 * ASTRONOMICAL_UNIT
+    let mars_eccentricity = 0.0934
+    let mars_period = orbital_period(mars_semi_major, SOLAR_MASS)
     
-    // Apply constant force and update
-    let force = Vector3D { x: 0.0, y: -9.81, z: 0.0 } // gravity
-    let dt = 0.1 // 0.1 second time step
+    print("Mars-like Elliptical Orbit:")
+    print("Semi-major axis: ${mars_semi_major / ASTRONOMICAL_UNIT} AU")
+    print("Eccentricity: ${mars_eccentricity}")
+    print("Orbital period: ${mars_period / (24.0 * 3600.0 * 365.25)} years")
     
-    let updated_particle = update_particle_physics(particle, force, dt)
-    print("After 0.1s with gravity:")
-    print("Position: (${updated_particle.position.x}, ${updated_particle.position.y}, ${updated_particle.position.z})")
-    print("Velocity: (${updated_particle.velocity.x}, ${updated_particle.velocity.y}, ${updated_particle.velocity.z})")
+    // Calculate velocities at perihelion and aphelion
+    let perihelion_distance = mars_semi_major * (1.0 - mars_eccentricity)
+    let aphelion_distance = mars_semi_major * (1.0 + mars_eccentricity)
+    let vel_perihelion = orbital_velocity_at_distance(SOLAR_MASS, perihelion_distance, mars_semi_major)
+    let vel_aphelion = orbital_velocity_at_distance(SOLAR_MASS, aphelion_distance, mars_semi_major)
+    
+    print("Perihelion velocity: ${vel_perihelion / 1000.0} km/s")
+    print("Aphelion velocity: ${vel_aphelion / 1000.0} km/s")
+    print()
+    
+    /// LAGRANGE POINTS
+    print("=== LAGRANGE POINTS ===")
+    
+    let earth_sun_l1 = lagrange_l1_distance(SOLAR_MASS, EARTH_MASS, ASTRONOMICAL_UNIT)
+    print("Earth-Sun L1 distance from Earth: ${earth_sun_l1 / ASTRONOMICAL_UNIT} AU")
+    print("L1 distance: ${earth_sun_l1 / 1000000.0} million km")
+    print()
+    
+    /// ESCAPE VELOCITIES
+    print("=== ESCAPE VELOCITIES ===")
+    
+    let earth_escape_vel = escape_velocity(EARTH_MASS, EARTH_RADIUS)
+    let sun_escape_vel = escape_velocity(SOLAR_MASS, SOLAR_RADIUS)
+    
+    print("Escape velocity from Earth surface: ${earth_escape_vel / 1000.0} km/s")
+    print("Escape velocity from Sun surface: ${sun_escape_vel / 1000.0} km/s")
+    print()
+    
+    /// ORBITAL TRANSFERS
+    print("=== ORBITAL TRANSFERS ===")
+    
+    // Hohmann transfer from Earth to Mars orbit
+    let earth_mars_transfer = hohmann_transfer(SOLAR_MASS, ASTRONOMICAL_UNIT, mars_semi_major)
+    
+    print("Earth to Mars Hohmann Transfer:")
+    print("ΔV at Earth: ${earth_mars_transfer.transfer_velocity_1 / 1000.0} km/s")
+    print("ΔV at Mars: ${earth_mars_transfer.transfer_velocity_2 / 1000.0} km/s")
+    print("Total ΔV: ${earth_mars_transfer.total_delta_v / 1000.0} km/s")
+    print("Transfer time: ${earth_mars_transfer.transfer_time / (24.0 * 3600.0)} days")
+    print()
+    
+    /// TIDAL FORCES
+    print("=== TIDAL FORCES ===")
+    
+    let earth_roche_limit = roche_limit_fluid(EARTH_MASS, EARTH_RADIUS, 1000.0, 5515.0) // Moon density vs Earth
+    print("Earth's Roche limit (fluid body): ${earth_roche_limit / EARTH_RADIUS} Earth radii")
+    print("Earth's Roche limit: ${earth_roche_limit / 1000.0} km")
+    print("Moon's distance: ${LUNAR_DISTANCE / 1000.0} km")
+    print()
+    
+    /// RELATIVISTIC EFFECTS
+    print("=== RELATIVISTIC CELESTIAL MECHANICS ===")
+    
+    let sun_schwarzschild = schwarzschild_radius(SOLAR_MASS)
+    let mercury_semi_major = 0.387 * ASTRONOMICAL_UNIT
+    let mercury_eccentricity = 0.206
+    
+    print("Relativistic Effects:")
+    print("Sun's Schwarzschild radius: ${sun_schwarzschild / 1000.0} km")
+    
+    // Mercury perihelion precession
+    let mercury_precession_per_orbit = mercury_perihelion_precession_rate(mercury_semi_major, mercury_eccentricity, SOLAR_MASS)
+    let mercury_period = orbital_period(mercury_semi_major, SOLAR_MASS)
+    let orbits_per_century = (100.0 * 365.25 * 24.0 * 3600.0) / mercury_period
+    let precession_per_century_rad = mercury_precession_per_orbit * orbits_per_century
+    let precession_per_century_arcsec = radians_to_degrees(precession_per_century_rad) * 3600.0
+    
+    print("Mercury perihelion precession: ${precession_per_century_arcsec} arcsec/century")
+    print("Observed: ~43 arcsec/century")
+    
+    // Time dilation on Earth's surface
+    let earth_time_dilation = gravitational_time_dilation_factor(EARTH_MASS, EARTH_RADIUS)
+    print("Gravitational time dilation on Earth: ${1.0 - earth_time_dilation}")
+    
+    // GPS satellite altitude effect
+    let gps_altitude = 20200000.0 // 20,200 km above Earth
+    let gps_radius = EARTH_RADIUS + gps_altitude
+    let gps_time_dilation = gravitational_time_dilation_factor(EARTH_MASS, gps_radius)
+    let earth_surface_dilation = gravitational_time_dilation_factor(EARTH_MASS, EARTH_RADIUS)
+    let gps_relative_effect = gps_time_dilation - earth_surface_dilation
+    
+    print("GPS time dilation relative to Earth surface: ${gps_relative_effect}")
+    print()
+    
+    /// THREE-BODY PROBLEM EXAMPLE
+    print("=== THREE-BODY SYSTEM EXAMPLE ===")
+    
+    // Earth-Moon-Sun system
+    let sun_pos = Vector3D { x: 0.0, y: 0.0, z: 0.0 }
+    let earth_pos = Vector3D { x: ASTRONOMICAL_UNIT, y: 0.0, z: 0.0 }
+    let moon_pos = Vector3D { x: ASTRONOMICAL_UNIT + LUNAR_DISTANCE, y: 0.0, z: 0.0 }
+    
+    let sun_body = CelestialBody { 
+        mass: SOLAR_MASS, 
+        radius: SOLAR_RADIUS, 
+        position: sun_pos, 
+        velocity: Vector3D { x: 0.0, y: 0.0, z: 0.0 },
+        name: "Sun"
+    }
+    
+    let earth_body = CelestialBody { 
+        mass: EARTH_MASS, 
+        radius: EARTH_RADIUS, 
+        position: earth_pos, 
+        velocity: Vector3D { x: 0.0, y: EARTH_ORBITAL_VELOCITY, z: 0.0 },
+        name: "Earth"
+    }
+    
+    let moon_body = CelestialBody { 
+        mass: MOON_MASS, 
+        radius: 1.737e6, 
+        position: moon_pos, 
+        velocity: Vector3D { x: 0.0, y: EARTH_ORBITAL_VELOCITY + 1022.0, z: 0.0 },
+        name: "Moon"
+    }
+    
+    let bodies = [sun_body, earth_body, moon_body]
+    
+    // Calculate gravitational forces
+    let force_on_earth = n_body_gravitational_force(bodies, 1)
+    let force_on_moon = n_body_gravitational_force(bodies, 2)
+    
+    print("N-Body System Forces:")
+    print("Force on Earth magnitude: ${vector3d_magnitude(force_on_earth)} N")
+    print("Force on Moon magnitude: ${vector3d_magnitude(force_on_moon)} N")
+    print()
+    
+    print("=== CELESTIAL MECHANICS DEMO COMPLETE ===")
 }
 
-// Run the demo
-physics_demo()
+// Run the celestial mechanics demo
+celestial_mechanics_demo()
